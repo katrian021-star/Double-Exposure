@@ -2,65 +2,21 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Double Exposure - Game Collection</title>
+<meta http-equiv="refresh" content="0;url=With%20Music.html">
+<title>Double Exposure</title>
 <style>
-  *{margin:0;padding:0;box-sizing:border-box}
-  html,body{height:100%;background:linear-gradient(135deg,#0d0d1a 0%,#1a1a2e 100%);font-family:system-ui,-apple-system,sans-serif;color:#f0ece4;display:flex;justify-content:center;align-items:center;overflow:hidden}
-  .container{text-align:center;padding:40px;max-width:700px;width:90%}
-  h1{font-size:3.5em;font-weight:300;letter-spacing:.15em;margin-bottom:10px;background:linear-gradient(135deg,#c8b860,#f0e68c);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-  h2{font-size:1.3em;font-weight:300;color:#c8b860;margin-bottom:50px;letter-spacing:.05em}
-  .games{display:flex;flex-direction:column;gap:20px;margin-top:40px}
-  .game-card{background:rgba(200,184,96,.05);border:1px solid rgba(200,184,96,.3);border-radius:8px;padding:25px 30px;cursor:pointer;transition:all .3s;text-decoration:none;color:inherit;display:flex;justify-content:space-between;align-items:center}
-  .game-card:hover{background:rgba(200,184,96,.12);border-color:rgba(200,184,96,.6);transform:translateY(-2px);box-shadow:0 8px 25px rgba(200,184,96,.15)}
-  .game-info{flex:1;text-align:left}
-  .game-title{font-size:1.4em;font-weight:400;margin-bottom:6px;color:#f0ece4}
-  .game-desc{font-size:.9em;color:#a8a090;letter-spacing:.03em}
-  .arrow{font-size:1.5em;color:#c8b860;transition:transform .3s}
-  .game-card:hover .arrow{transform:translateX(5px)}
-  .footer{margin-top:50px;font-size:.85em;color:#7a7a6a;letter-spacing:.05em}
-  .music-badge{display:inline-block;background:rgba(200,184,96,.15);color:#c8b860;padding:2px 8px;border-radius:3px;font-size:.7em;margin-left:8px;vertical-align:middle}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;background:#0d0d1a;display:flex;justify-content:center;align-items:center;font-family:system-ui,sans-serif}
+#loading{text-align:center;color:#c8b860;letter-spacing:4px;font-size:14px}
+#loading div{margin-top:16px;width:30px;height:30px;border:2px solid rgba(200,184,96,.15);border-top:2px solid #c8b860;border-radius:50%;animation:spin 1s linear infinite;margin-left:auto;margin-right:auto}
+@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
-<div class="container">
-  <h1>Double Exposure</h1>
-  <h2>Returning to The Old Summer Palace</h2>
-
-  <div class="games">
-    <a href="With%20Music.html" class="game-card">
-      <div class="game-info">
-        <div class="game-title">With Music<span class="music-badge">♬ RECOMMENDED</span></div>
-        <div class="game-desc">Full experience with ambient soundtrack · 3 scenes · 6 discoveries</div>
-      </div>
-      <div class="arrow">→</div>
-    </a>
-
-    <a href="Double%20Exposure.html" class="game-card">
-      <div class="game-info">
-        <div class="game-title">Double Exposure</div>
-        <div class="game-desc">Standard version · English · 3 scenes · 6 discoveries</div>
-      </div>
-      <div class="arrow">→</div>
-    </a>
-
-    <a href="Version%202.html" class="game-card">
-      <div class="game-info">
-        <div class="game-title">Version 2 (中文版)</div>
-        <div class="game-desc">Original Chinese version</div>
-      </div>
-      <div class="arrow">→</div>
-    </a>
-
-    <a href="Version%201.html" class="game-card">
-      <div class="game-info">
-        <div class="game-title">Version 1</div>
-        <div class="game-desc">First prototype</div>
-      </div>
-      <div class="arrow">→</div>
-    </a>
-  </div>
-
-  <div class="footer">A meditative journey through Yuanmingyuan · 2026</div>
+<div id="loading">
+  LOADING
+  <div></div>
 </div>
+<script>location.href='With%20Music.html'</script>
 </body>
 </html>
