@@ -280,6 +280,8 @@ var IMG={img:{},loaded:{}};
       if(origFn)origFn()
     }})(IMG.img[k].onload,k)
   }
+  // Start preloading music in background
+  if(typeof preloadAllMusic==='function')preloadAllMusic();
 })();
 
 var G={
@@ -376,6 +378,20 @@ var ZONE_MUSIC={
 
 var audioElements={};
 var currentAudio=null;
+
+function preloadAllMusic(){
+  for(var zoneId in ZONE_MUSIC){
+    var src=ZONE_MUSIC[zoneId];
+    if(!audioElements[zoneId]){
+      var a=new Audio(src);
+      a.preload='auto';
+      a.loop=true;
+      a.volume=0.5;
+      a.load();
+      audioElements[zoneId]=a;
+    }
+  }
+}
 
 function playZoneMusic(zoneId){
   var src=ZONE_MUSIC[zoneId];
@@ -1058,10 +1074,6 @@ document.addEventListener('keydown',function(e){
 function hideLoading(){
   var el=$('#loading-overlay');
   if(el){el.classList.add('hidden');setTimeout(function(){if(el)el.style.display='none'},1000)}
-  // Also load the first zone's music if available
-  if(typeof audioElements!=='undefined'&&audioElements.xiyanglou){
-    if(audioElements.xiyanglou.src)audioElements.xiyanglou.load()
-  }
 }
 </script>
 </body>
