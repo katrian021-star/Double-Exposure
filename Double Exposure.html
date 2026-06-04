@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Double Exposure: Returning to The Old Summer Palace</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{
+  background:#0d0d1a;
+  font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+  user-select:none;-webkit-user-select:none;
+  width:100%;height:100%;overflow:hidden;
+}
+#game-wrapper{width:100%;height:100%;display:flex;justify-content:center;align-items:center}
+#game{position:relative;width:800px;height:600px;overflow:hidden;border-radius:4px;box-shadow:0 0 80px rgba(0,0,0,.6);flex-shrink:0;transform:scale(1.3);transform-origin:center center}
+
+#scene-canvas,#detail-canvas{position:absolute;top:0;left:0;z-index:1;transition:transform .5s ease}
+#scene-canvas.crouching{transform:scale(1.08)}
+#detail-canvas{z-index:3;transition:opacity .5s;opacity:0;pointer-events:none}
+#detail-canvas.show{opacity:1;pointer-events:none}
+
+.hotspot{position:absolute;cursor:pointer;border-radius:6px;z-index:5;transition:background .2s,box-shadow .2s,opacity .3s;border:1px solid rgba(200,184,96,.2);background:rgba(200,184,96,.03)}
+.hotspot:hover{background:rgba(200,184,96,.25);box-shadow:0 0 18px rgba(200,184,96,.5);border-color:rgba(200,184,96,.5)}
+.hotspot.locked{pointer-events:none;opacity:0}
+.hotspot.unlocked{pointer-events:auto;opacity:1}
+.sub-hotspot{border:1px solid rgba(200,184,96,.2)!important;background:rgba(200,184,96,.03)!important;z-index:10!important}
+.sub-hotspot:hover{background:rgba(200,184,96,.25)!important;box-shadow:0 0 18px rgba(200,184,96,.5)!important;border-color:rgba(200,184,96,.5)!important}
+
+.exit-zone{position:absolute;cursor:pointer;z-index:6;background:rgba(200,184,96,.06);border:1px dashed rgba(200,184,96,.2);border-radius:6px;transition:all .25s}
+.exit-zone:hover{background:rgba(200,184,96,.18);border-color:rgba(200,184,96,.5);box-shadow:0 0 18px rgba(200,184,96,.3)}
+.exit-marker{position:absolute;z-index:7;display:flex;align-items:center;gap:6px;font-size:12px;color:#c8b860;opacity:0;transition:opacity .25s;pointer-events:none;background:rgba(13,13,26,.85);padding:4px 12px;border-radius:3px}
+.exit-zone:hover+.exit-marker{opacity:1}
+
+#game.in-detail .hotspot,#game.in-detail .exit-zone,#game.in-detail .exit-marker{pointer-events:none!important;opacity:0!important}
+#game.in-detail .sub-hotspot{pointer-events:auto!important;opacity:1!important}
+
+#hud-zone-label{position:absolute;top:16px;left:50%;transform:translateX(-50%);font-size:14px;font-weight:700;color:#e0e0e0;letter-spacing:3px;z-index:20;background:rgba(13,13,26,.85);padding:6px 22px;border-radius:2px;pointer-events:none;white-space:nowrap}
+#hud-prompt{position:absolute;bottom:22px;left:50%;transform:translateX(-50%);font-size:13px;color:#aaa;letter-spacing:1px;z-index:20;background:rgba(20,24,36,.92);padding:8px 18px;border-radius:2px;pointer-events:none;transition:opacity .25s;white-space:nowrap}
+#hud-toast{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:13px;color:#ccc;letter-spacing:1px;z-index:25;background:rgba(20,24,36,.92);padding:12px 24px;border-radius:3px;max-width:520px;text-align:center;line-height:1.7;pointer-events:none;transition:opacity .3s;border:1px solid rgba(200,184,96,.25)}
+#hud-progress{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);display:flex;gap:14px;z-index:20;pointer-events:none}
+.progress-dot{width:8px;height:8px;border-radius:50%;border:1.5px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);transition:all .4s}
+.progress-dot.filled{background:#c8b860;border-color:#c8b860;box-shadow:0 0 6px rgba(200,184,96,.5)}
+
+#hud-notebook-btn{position:absolute;top:16px;right:16px;z-index:30;font-size:18px;cursor:pointer;background:rgba(20,24,36,.85);padding:4px 12px;border-radius:2px;border:1px solid rgba(200,184,96,.2);color:#c8b860;transition:all .2s;letter-spacing:1px;font-size:13px}
+#hud-notebook-btn:hover{background:rgba(200,184,96,.15);border-color:rgba(200,184,96,.5)}
+#hud-notebook-btn.flash{animation:btn-flash .4s ease-out}
+@keyframes btn-flash{0%{background:rgba(200,184,96,.4);border-color:#c8b860}100%{background:rgba(20,24,36,.85);border-color:rgba(200,184,96,.2)}}
+
+#discovery-toast{position:absolute;top:45%;left:50%;transform:translate(-50%,-50%);z-index:45;font-size:15px;color:#c8b860;letter-spacing:2px;background:rgba(20,24,36,.95);padding:16px 32px;border:1px solid rgba(200,184,96,.35);border-radius:3px;opacity:0;pointer-events:none;transition:opacity .3s;text-align:center}
+#discovery-toast.show{opacity:1}
+#discovery-toast small{display:block;font-size:12px;color:#888;letter-spacing:1px;margin-top:6px}
+
+#detail-panel{position:absolute;bottom:0;left:0;width:100%;z-index:10;background:linear-gradient(transparent,rgba(13,13,22,.95) 30%);padding:80px 60px 28px;display:flex;flex-direction:column;align-items:center;gap:10px;transition:opacity .5s;opacity:0;pointer-events:none}
+#detail-panel.show{opacity:1;pointer-events:auto}
+#detail-title{font-size:17px;font-weight:700;color:#c8b860;letter-spacing:2px}
+#detail-text{font-size:13px;color:#bbb;letter-spacing:1px;line-height:1.9;text-align:center;max-width:580px}
+#detail-lit{font-size:11px;color:#777}
+#detail-back{padding:8px 32px;border:1px solid #c8b860;color:#c8b860;font-size:13px;letter-spacing:2px;cursor:pointer;transition:all .2s;background:transparent}
+#detail-back:hover{background:rgba(200,184,96,.15)}
+
+#notebook-overlay{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.6);z-index:40;display:flex;justify-content:center;align-items:center;transition:opacity .35s}
+#notebook-overlay.hidden{opacity:0;pointer-events:none}
+#notebook-panel{width:540px;max-height:480px;background:#141a22;border:1px solid #2a3040;padding:0;text-align:left;overflow-y:auto;border-radius:2px}
+#notebook-header{display:flex;justify-content:space-between;align-items:center;padding:22px 28px 14px;border-bottom:1px solid #1e2630;font-size:15px;font-weight:700;color:#c8b860;letter-spacing:2px;position:sticky;top:0;background:#141a22}
+#notebook-list{padding:8px 0}
+.notebook-item{padding:14px 28px;cursor:pointer;border-bottom:1px solid rgba(42,48,64,.3);transition:background .2s;display:flex;align-items:center;gap:12px}
+.notebook-item:hover{background:rgba(200,184,96,.06)}
+.notebook-item .ni-icon{width:24px;height:24px;border-radius:50%;background:rgba(200,184,96,.12);display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;color:#c8b860}
+.notebook-item .ni-title{font-size:13px;color:#ccc;letter-spacing:1px}
+.notebook-item .ni-arrow{font-size:11px;color:#555;margin-left:auto}
+.notebook-empty{padding:40px 28px;text-align:center;color:#666;font-size:13px;letter-spacing:1px}
+#notebook-detail{padding:20px 28px 24px}
+#notebook-detail-title{font-size:17px;font-weight:700;color:#c8b860;letter-spacing:2px;margin-bottom:14px}
+#notebook-detail-text{font-size:13px;color:#bbb;letter-spacing:1px;line-height:2.2;margin-bottom:10px}
+#notebook-detail-lit{font-size:11px;color:#666;margin-bottom:18px}
+#notebook-detail-back{font-size:12px;color:#888;cursor:pointer;letter-spacing:1px;display:inline-block;transition:color .2s}
+#notebook-detail-back:hover{color:#c8b860}
+#notebook-close{text-align:center;padding:16px;font-size:12px;color:#666;letter-spacing:2px;cursor:pointer;border-top:1px solid #1e2630;transition:color .2s;background:rgba(0,0,0,.1)}
+#notebook-close:hover{color:#c8b860}
+
+#transition-overlay{position:absolute;top:0;left:0;width:100%;height:100%;background:#0d0d1a;z-index:50;display:flex;justify-content:center;align-items:center;transition:opacity .5s;flex-direction:column}
+#transition-overlay.hidden{opacity:0;pointer-events:none}
+#transition-text{font-size:15px;color:#888;letter-spacing:2px;text-align:center;line-height:1.8;max-width:500px}
+
+#thesis-overlay{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(18,22,30,.97);z-index:60;display:flex;flex-direction:column;justify-content:center;align-items:center;transition:opacity .8s;gap:20px}
+#thesis-overlay.hidden{opacity:0;pointer-events:none}
+#thesis-subtitle{font-size:16px;color:#c8b860;letter-spacing:4px}
+#thesis-quote{font-size:14px;color:#e0d8c0;letter-spacing:1px;line-height:2.2;text-align:center;max-width:560px;white-space:pre-line}
+#thesis-restart{padding:10px 40px;border:1px solid #c8b860;color:#c8b860;font-size:14px;letter-spacing:3px;cursor:pointer;transition:all .2s}
+#thesis-restart:hover{background:rgba(200,184,96,.1)}
+#thesis-easter-egg{padding:10px 40px;border:1px solid #888;color:#888;font-size:13px;letter-spacing:3px;cursor:pointer;transition:all .2s;margin-top:8px}
+#thesis-easter-egg:hover{background:rgba(136,136,136,.1);color:#aaa}
+#easter-egg-overlay{position:absolute;top:0;left:0;width:100%;height:100%;background:#000;z-index:80;display:flex;justify-content:center;align-items:center;transition:opacity .5s}
+#easter-egg-overlay.hidden{opacity:0;pointer-events:none}
+#easter-egg-image{width:100%;height:100%;object-fit:contain}
+#easter-egg-close{position:absolute;top:20px;right:20px;padding:8px 24px;border:1px solid #888;color:#888;font-size:12px;letter-spacing:2px;cursor:pointer;transition:all .2s;background:rgba(0,0,0,.5)}
+#easter-egg-close:hover{background:rgba(255,255,255,.1);color:#fff}
+#easter-egg-home{position:absolute;top:20px;left:20px;padding:8px 24px;border:1px solid #888;color:#888;font-size:12px;letter-spacing:2px;cursor:pointer;transition:all .2s;background:rgba(0,0,0,.5)}
+#easter-egg-home:hover{background:rgba(255,255,255,.1);color:#fff}
+
+#title-screen{position:absolute;top:0;left:0;width:100%;height:100%;background:url('cover.jpg') center/cover;z-index:70;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:16px;transition:opacity .6s}
+#title-screen::after{content:'';position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(13,22,46,.75)}
+#title-screen.hidden{opacity:0;pointer-events:none}
+#title-main{font-size:38px;font-weight:700;color:#e0c068;letter-spacing:8px;position:relative;z-index:1}
+#title-sub{font-size:15px;color:#777;letter-spacing:6px;position:relative;z-index:1}
+#title-start{margin-top:20px;padding:10px 40px;border:2px solid #c8b860;color:#c8b860;font-size:15px;letter-spacing:4px;cursor:pointer;transition:all .25s;position:relative;z-index:1}
+#title-start:hover{background:rgba(200,184,96,.12)}
+#title-continue{margin-top:8px;padding:8px 36px;border:1px solid #888;color:#999;font-size:13px;letter-spacing:3px;cursor:pointer;transition:all .25s;position:relative;z-index:1;display:none}
+#title-continue:hover{background:rgba(200,184,96,.12);border-color:#c8b860;color:#c8b860}
+#title-hint{position:absolute;bottom:20px;font-size:11px;color:#444;letter-spacing:2px;animation:hintPulse 2s ease-in-out infinite;z-index:1}
+#home-btn{position:fixed;bottom:20px;right:20px;z-index:1000;font-size:14px;color:#fff;letter-spacing:2px;cursor:pointer;background:rgba(200,184,96,0.9);padding:10px 20px;border-radius:4px;border:2px solid #c8b860;transition:all .2s;display:none;box-shadow:0 4px 12px rgba(0,0,0,0.5)}
+#home-btn:hover{background:#c8b860;color:#000}
+@keyframes hintPulse{0%,100%{opacity:.4}50%{opacity:1}}
+
+#editor-toggle{position:absolute;top:12px;right:16px;z-index:30;font-size:11px;color:#555;letter-spacing:1px;cursor:pointer;background:rgba(13,13,26,.8);padding:4px 10px;border-radius:2px;border:1px solid rgba(255,255,255,.1);transition:all .2s}
+#editor-toggle:hover{color:#c8b860;border-color:#c8b860}
+#editor-toggle.active{color:#c8b860;border-color:#c8b860;background:rgba(200,184,96,.12)}
+
+#editor-panel{width:260px;height:600px;background:rgba(14,16,28,.96);border:1px solid rgba(200,184,96,.2);display:none;flex-direction:column;padding:16px;overflow-y:auto}
+#editor-panel.show{display:flex}
+#editor-panel h3{font-size:13px;color:#c8b860;letter-spacing:2px;margin-bottom:12px;font-weight:400}
+#editor-panel label{font-size:11px;color:#777;letter-spacing:1px;margin-bottom:4px}
+
+#editor-load-btn{display:block;width:100%;padding:8px;border:1px dashed rgba(200,184,96,.3);color:#999;font-size:11px;letter-spacing:1px;cursor:pointer;text-align:center;background:transparent;transition:all .2s;margin-bottom:12px}
+#editor-load-btn:hover{color:#c8b860;border-color:#c8b860;background:rgba(200,184,96,.06)}
+#editor-file{display:none}
+
+#editor-info{font-size:10px;color:#555;letter-spacing:1px;margin-bottom:8px;line-height:1.6}
+#editor-coords{font-size:11px;color:#aaa;letter-spacing:1px;margin-bottom:12px;min-height:18px}
+
+#editor-hotspot-list{flex:1;overflow-y:auto;margin-bottom:12px}
+.editor-hs-item{display:flex;align-items:center;justify-content:space-between;padding:6px 8px;margin-bottom:4px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:3px;font-size:10px;color:#aaa}
+.editor-hs-item .hs-coords{flex:1;letter-spacing:.5px}
+.editor-hs-item .hs-del{color:#664;cursor:pointer;padding:2px 6px;font-size:11px;transition:color .2s}
+.editor-hs-item .hs-del:hover{color:#c44}
+
+#editor-export-btn{display:block;width:100%;padding:10px;border:1px solid #c8b860;color:#c8b860;font-size:12px;letter-spacing:2px;cursor:pointer;background:transparent;transition:all .2s;margin-bottom:6px}
+#editor-export-btn:hover{background:rgba(200,184,96,.12)}
+#editor-clear-btn{display:block;width:100%;padding:6px;border:1px solid rgba(255,255,255,.08);color:#666;font-size:10px;letter-spacing:1px;cursor:pointer;background:transparent;transition:all .2s}
+#editor-clear-btn:hover{color:#999;border-color:rgba(255,255,255,.2)}
+
+#editor-canvas{z-index:8;position:absolute;top:0;left:0;pointer-events:none;display:none}
+#editor-canvas.active{display:block;pointer-events:auto}
+
+.editor-hint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:28;font-size:12px;color:rgba(200,184,96,.5);letter-spacing:2px;pointer-events:none;display:none}
+.editor-hint.show{display:block}
+</style>
+</head>
+<body>
+<div id="game-wrapper">
+<div id="game">
+<canvas id="scene-canvas" width="800" height="600"></canvas>
+<canvas id="detail-canvas" width="800" height="600"></canvas>
+
+<div id="detail-panel">
+<div id="detail-title"></div>
+<div id="detail-text"></div>
+<div id="detail-lit"></div>
+<div id="detail-back">BACK TO SCENE</div>
+</div>
+
+<div id="hud-zone-label"></div>
+<div id="hud-prompt" style="opacity:0"></div>
+<div id="hud-toast" style="opacity:0"></div>
+<div id="discovery-toast"><span></span><small></small></div>
+<div id="hud-progress"></div>
+<div id="hud-notebook-btn" onclick="toggleNotebook()">📓</div>
+
+<div id="notebook-overlay" class="hidden">
+<div id="notebook-panel">
+<div id="notebook-header">
+  <span>OBSERVATION NOTES</span>
+  <span id="notebook-count" style="font-size:12px;color:#888"></span>
+</div>
+<div id="notebook-list"></div>
+<div id="notebook-detail" style="display:none">
+  <div id="notebook-detail-title"></div>
+  <div id="notebook-detail-text"></div>
+  <div id="notebook-detail-lit"></div>
+  <div id="notebook-detail-back" onclick="showNotebookList()">← Back to List</div>
+</div>
+<div id="notebook-close" onclick="toggleNotebook()">CONTINUE EXPLORING</div>
+</div>
+</div>
+
+<div id="transition-overlay" class="hidden">
+<div id="transition-text"></div>
+</div>
+
+<div id="thesis-overlay" class="hidden">
+<div id="thesis-subtitle">YOU HAVE SEEN</div>
+<div id="thesis-quote"></div>
+<div id="thesis-restart">EXPLORE AGAIN</div>
+<div id="thesis-easter-egg">EASTER EGG</div>
+</div>
+
+<div id="easter-egg-overlay" class="hidden">
+<img id="easter-egg-image" src="easter_egg.jpg" />
+<div id="easter-egg-close" onclick="closeEasterEgg()">CLOSE</div>
+<div id="easter-egg-home" onclick="closeEasterEggAndReturnHome()">RETURN HOME</div>
+</div>
+
+<div id="title-screen">
+<div id="title-main">Double Exposure</div>
+<div id="title-sub">Returning to The Old Summer Palace</div>
+<div id="title-start">BEGIN EXPLORATION</div>
+<div id="title-continue" onclick="continueGame()">CONTINUE</div>
+<div id="title-hint">Click to begin exploring Yuanmingyuan</div>
+</div>
+
+<div id="home-btn" onclick="returnToTitle()">RETURN HOME</div>
+
+<div id="editor-toggle">Hotspot Editor</div>
+<canvas id="editor-canvas" width="800" height="600"></canvas>
+<div class="editor-hint" id="editor-hint-draw">Drag to draw hotspot area</div>
+</div>
+
+<div id="editor-panel">
+<h3>Hotspot Editor</h3>
+<button id="editor-load-btn">📁 Load Background</button>
+<input type="file" id="editor-file" accept="image/*">
+<div id="editor-info">Drag to draw hotspots on the background<br/>Press E or click button to exit</div>
+<div id="editor-coords"></div>
+<div id="editor-hotspot-list"></div>
+<button id="editor-export-btn">📋 Export JSON to Clipboard</button>
+<button id="editor-clear-btn">Clear All Hotspots</button>
+</div>
+</div>
+
+<script>
+'use strict';
+var $=function(s){return document.querySelector(s)};
+
+var IMG={img:{},loaded:{}};
+(function initImages(){
+  var map={
+    zone1_main:'jimeng_zone1_xiyanglou.jpg',
+    zone2_main:'changchunyuan_bg.jpg',
+    zone3_main:'fuhai_bg.jpg',
+    detail_arch_crack:'jimeng_detail_arch_crack.jpg',
+    detail_bench:'detail_bench.jpg',
+    detail_swan:'jimeng_detail_swan.jpg',
+    detail_feed_swan:'jimeng_detail_feed_swan.jpg',
+    detail_lake_reflection:'jimeng_detail_lake_reflection.jpg',
+    detail_pillar:'detail_pillar.jpg',
+    detail_arch_touch:'jimeng_detail_arch_touch.jpg',
+    detail_willow:'detail_willow.jpg',
+    detail_crouch_spot:'jimeng_detail_crouch_spot.jpg',
+    detail_lotus:'detail_lotus.jpg'
+  };
+  for(var k in map){
+    IMG.img[k]=new Image();
+    IMG.loaded[k]=false;
+    IMG.img[k].onload=(function(key){return function(){
+      IMG.loaded[key]=true;
+      var rm={zone1_main:'xiyanglou',zone2_main:'changchunyuan',zone3_main:'fuhai'};
+      if(rm[key]&&rm[key]===G.currentZone&&!G.detailActive){
+        drawMainScene(G.currentZone);
+        drawExitIndicators($('#scene-canvas').getContext('2d'),G.currentZone)
+      }
+    }})(k);
+    IMG.img[k].src=map[k]
+  }
+})();
+
+var G={
+  currentZone:'xiyanglou',
+  discoveries:[],
+  actions:{},
+  crouching:false,
+  detailActive:false,
+  toastTimer:null
+};
+
+var ZONES={
+  xiyanglou:{id:'xiyanglou',name:'Xiyanglou Ruins',subtitle:'North Changchunyuan',emotion:'heavy',
+    ambient:'Wind whispers through broken pillars. The air feels heavy.',
+    hotspots:[
+      {id:'arch_touch',x:305,y:240,w:154,h:166,action:'touch_stone',label:'Touch the Arch Carving',detailFn:'drawDT_archTouch',
+       feedback:'You touch the marble. Cold, rough. The lines are deep, like frozen time.',lit:'Edensor — Stone Materiality'},
+      {id:'pillar_detail',x:443,y:265,w:26,h:74,action:'examine_pillar',label:'Examine Broken Pillar',detailFn:'drawDT_pillarDetail',
+       feedback:'The pillar from Yuanyingguan is covered in hanging grape carvings, three inches deep. Exquisite, yet broken.',lit:'Edensor — Stone Materiality'},
+      {id:'crouch_spot',x:461,y:499,w:312,h:58,action:'crouch',label:'Crouch Down',detailFn:'drawDT_crouchSpot',
+       feedback:'You crouch, eyes level with the arch base. The crack is deeper—and closer to the ground.',lit:'Ireland — Bodily Engagement',
+       subHotspots:[
+         {x:300,y:350,w:120,h:80,action:'examine_crack',label:'Examine Flower in Crack',detailFn:'drawDT_archCrack',
+          feedback:'',lit:'',discovery:'fissure_flower'}
+       ]},
+      ],
+    discoveries:[
+      {id:'fissure_flower',trigger:['crouch','examine_crack'],title:'Wildflower in Stone Crack',
+       note:'I only see it when I crouch—a pale purple wildflower, growing from a crack in the arch base. The crack bears burn marks; the stone still shows scars from the fire. But there it is. Dew on its petals, barely a handspan from the ground. I watch it for a long time. The fire of 1860 could not stop it.',
+       lit:'Edensor Geological Symbiosis · Lee Heterotopia'},
+      {id:'vine_carving',trigger:['examine_pillar'],title:'Broken Grape Carving',
+       note:'I trace the carvings with my finger. Every cut remains—three inches deep, vines hanging from the capital, grapes clearly defined. Some parts are broken off, the edges pale like fresh wounds. But this stone is cold. It does not breathe like the willow. Yet time has not worn it away.',
+       lit:'Edensor Stone Materiality'}
+    ],
+    exits:[{target:'changchunyuan',direction:'south',x:160,y:500,w:280,h:100,label:'South · Changchunyuan Lake'}]
+  },
+  changchunyuan:{id:'changchunyuan',name:'Changchunyuan Lake',subtitle:'Changchunyuan Lake',emotion:'melancholy',
+    ambient:'Lotus leaves rustle. A waterbird calls in the distance.',
+    hotspots:[
+      {id:'bench',x:727,y:359,w:67,h:81,action:'sit_bench',label:'Sit on Bench',detailFn:'drawDT_sitBench',
+       feedback:'You sit on the bench, looking through willow branches into the distance.',lit:'Göbel — Emotional Atmosphere'},
+      {id:'lotus',x:86,y:356,w:308,h:82,action:'observe_lotus',label:'Observe Lotus Pond',detailFn:'drawDT_observeLotus',
+       feedback:'Lotus leaves cover most of the water. When wind comes, green waves push in, then recede.',lit:'Ireland — Bodily Engagement'}
+    ],
+    discoveries:[
+      {id:'lotus_water',trigger:['observe_lotus'],title:'Lotus-Covered Water',
+       note:'Lotus leaves cover the water. When the wind pushes them, a whole sheet of green surges. A waterbird skims past, and I realize I am smiling—then almost immediately, a wave of unease rises. Should I not feel happy here? But this happiness is real. The unease is too. I do not take back the smile.',
+       lit:'Ireland Bodily Engagement · Lee Garden Space'}
+    ],
+    exits:[
+      {target:'xiyanglou',direction:'north',x:160,y:0,w:280,h:100,label:'North · Xiyanglou Ruins'},
+      {target:'fuhai',direction:'east',x:722,y:141,w:74,h:142,label:'East · Fuhai'}
+    ]
+  },
+  fuhai:{id:'fuhai',name:'Fuhai',subtitle:'Fuhai · Where Three Gardens Meet',emotion:'light',
+    ambient:'Open water glistens. Birdsong and distant laughter mingle.',
+    hotspots:[
+      {id:'swan',x:673,y:298,w:62,h:53,action:'observe_swan',label:'Observe Black Swans',detailFn:'drawDT_observeSwan',
+       feedback:'Two black swans glide across the water with gray cygnets. They move with unhurried grace.',lit:'Ireland — Bodily Engagement'},
+      {id:'feed_swan',x:547,y:260,w:31,h:38,action:'feed_swan',label:'Feed Swans',detailFn:'drawDT_feedSwan',
+       feedback:'You reach out. The swan approaches gracefully. Your fingertip nearly touches the water.',lit:'Ireland — Bodily Engagement'},
+      {id:'lake_reflection',x:337,y:205,w:106,h:69,action:'crouch_lake',label:'Crouch by Water',detailFn:'drawDT_crouchLake',
+       feedback:'You crouch by the lake. The water slowly grows calm.',lit:'Göbel — Emotional Atmosphere'},
+      {id:'willow',x:18,y:121,w:114,h:86,action:'touch_willow',label:'Touch Willow Branches',detailFn:'drawDT_touchWillow',
+       feedback:'The willow bark is warm, rough—alive. The stone was cold. This is not.',lit:'Ireland — Bodily Engagement'}
+    ],
+    discoveries:[
+      {id:'swan_family',trigger:['observe_swan','feed_swan'],title:'Swan Family',
+       note:'Two black swans with three gray cygnets swim toward me from the center of the lake. I crouch, reach out. The largest one hesitates, then brings its beak closer. In that moment, I think of nothing. Nothing at all. Only light on the water, and a warmth I cannot explain.',
+       lit:'Ireland Bodily Engagement · Living Ecological Landscape'},
+      {id:'feed_swan',trigger:['feed_swan'],title:'Feeding Swans',
+       note:'You reach out. The swan approaches gracefully. Your fingertip nearly touches the water.',
+       lit:'Ireland Bodily Engagement'},
+      {id:'touch_willow',trigger:['touch_willow'],title:'Touching Willow',
+       note:'Sitting on the bench, willow branches hanging before my eyes. Through the green gaps, the outline of pavilions across the lake flickers—they seem small now, sliced into pieces by the branches. My palm still holds the feel of willow bark, rough, warm. I think of the people who once stood beneath those pavilions. But I am no longer just imagining the past—the willow is right here at my hand, lotus leaves rustling beneath my feet.',
+       lit:'Göbel Emotional Atmosphere · Degen & Rose Walking Practice'}
+    ],
+    exits:[{target:'changchunyuan',direction:'west',x:0,y:160,w:100,h:280,label:'West · Changchunyuan Lake'}]
+  }
+};
+
+var TRANSITIONS={
+  'xiyanglou→changchunyuan':'You walk south. Passing through woods, the sound of wind grows softer. Lotus leaves appear at the edge of vision.',
+  'changchunyuan→xiyanglou':'You walk north. Willows recede, cypresses draw near. Stone outlines become clear and heavy again.',
+  'changchunyuan->fuhai':'You walk east. Passing through Quyuan Fenghe. Birdsong grows more frequent, the lake more open—you almost forget you are still in Yuanmingyuan.',
+  'fuhai→changchunyuan':'You walk west. The open lake shrinks behind you. Lotus leaves reappear. Distant ruin outlines return to the edge of sight.'
+};
+
+// ===== UTILITY =====
+var U={
+  skyG:function(ctx,w,h,s){
+    var g=ctx.createLinearGradient(0,0,0,h);
+    for(var i=0;i<s.length;i++)g.addColorStop(s[i][0],s[i][1]);
+    ctx.fillStyle=g;ctx.fillRect(0,0,w,h)
+  },
+  noise:function(ctx,w,h,intensity){
+    var img=ctx.getImageData(0,0,w,h),d=img.data;
+    for(var i=0;i<d.length;i+=4){var n=(Math.random()-.5)*intensity;d[i]+=n;d[i+1]+=n;d[i+2]+=n}
+    ctx.putImageData(img,0,0)
+  },
+  cloud:function(ctx,x,y,sz,a){
+    ctx.save();ctx.globalAlpha=a;ctx.fillStyle='#f0ece4';
+    ctx.beginPath();ctx.ellipse(x,y,sz,sz*.4,0,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.ellipse(x+sz*.6,y-sz*.1,sz*.7,sz*.35,0,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.ellipse(x-sz*.5,y+sz*.05,sz*.6,sz*.3,0,0,Math.PI*2);ctx.fill();
+    ctx.restore()
+  },
+  grass:function(ctx,x,y,w,h,n,c){
+    ctx.strokeStyle=c;ctx.lineWidth=1;
+    for(var i=0;i<n;i++){
+      var gx=x+Math.random()*w,gy=y+Math.random()*h,gh=8+Math.random()*20,sw=(Math.random()-.5)*8;
+      ctx.beginPath();ctx.moveTo(gx,gy);ctx.quadraticCurveTo(gx+sw*.5,gy-gh*.5,gx+sw,gy-gh);ctx.stroke()
+    }
+  },
+  bush:function(ctx,x,y,rx,ry,color){
+    ctx.fillStyle=color;
+    for(var i=0;i<5;i++){ctx.beginPath();ctx.ellipse(x+(Math.random()-.5)*rx*.6,y+(Math.random()-.5)*ry*.4,rx*(.5+Math.random()*.5),ry*(.5+Math.random()*.5),0,0,Math.PI*2);ctx.fill()}
+  },
+  stoneBlock:function(ctx,x,y,w,h,base,dark,highlight){
+    ctx.fillStyle=base;ctx.fillRect(x,y,w,h);
+    ctx.fillStyle=dark;ctx.fillRect(x,y,w,2);ctx.fillRect(x,y,2,h);
+    ctx.fillStyle=highlight;ctx.fillRect(x+w-2,y,2,h);ctx.fillRect(x,y+h-2,w,2)
+  },
+  treeCanopy:function(ctx,x,y,rx,ry,colors){
+    for(var i=0;i<colors.length;i++){
+      ctx.fillStyle=colors[i];
+      ctx.beginPath();ctx.ellipse(x+(Math.random()-.5)*rx*.4,y-(i)*ry*.15,rx*(.7+Math.random()*.3),ry*(.6+Math.random()*.3),0,0,Math.PI*2);ctx.fill()
+    }
+  },
+  vignette:function(ctx,w,h,alpha){
+    var g=ctx.createRadialGradient(w/2,h/2,w*.3,w/2,h/2,w*.7);
+    g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(0,0,0,'+alpha+')');
+    ctx.fillStyle=g;ctx.fillRect(0,0,w,h)
+  },
+  sunGlow:function(ctx,x,y,r,alpha){
+    var g=ctx.createRadialGradient(x,y,0,x,y,r);
+    g.addColorStop(0,'rgba(255,240,210,'+alpha+')');g.addColorStop(.3,'rgba(255,230,180,'+alpha*.5+')');g.addColorStop(1,'rgba(255,220,160,0)');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill()
+  }
+};
+
+// ===== MAIN SCENE DRAWING =====
+function drawMain_xiyanglou(ctx){
+  ctx.clearRect(0,0,800,600);
+  if(IMG.loaded.zone1_main){ctx.drawImage(IMG.img.zone1_main,0,0,800,600)}
+}
+
+function drawMain_changchunyuan(ctx){
+  ctx.clearRect(0,0,800,600);
+  if(IMG.loaded.zone2_main){ctx.drawImage(IMG.img.zone2_main,0,0,800,600)}
+}
+
+function drawMain_fuhai(ctx){
+  ctx.clearRect(0,0,800,600);
+  if(IMG.loaded.zone3_main){ctx.drawImage(IMG.img.zone3_main,0,0,800,600)}
+}
+
+// ===== DETAIL SCENE DRAWING =====
+function drawDT_archTouch(ctx){
+  ctx.clearRect(0,0,800,600);
+  if(IMG.loaded.detail_arch_touch){ctx.drawImage(IMG.img.detail_arch_touch,0,0,800,600)}
+}
+
+function drawDT_pillarDetail(ctx){
+  ctx.clearRect(0,0,800,600);
+  if(IMG.loaded.detail_pillar){ctx.drawImage(IMG.img.detail_pillar,0,0,800,600)}
+}
+
+function drawDT_crouchSpot(ctx){
+  ctx.clearRect(0,0,800,600);
+  if(IMG.loaded.detail_crouch_spot){ctx.drawImage(IMG.img.detail_crouch_spot,0,0,800,600)}
+}
+
+function drawDT_archCrack(ctx){
+  ctx.clearRect(0,0,800,600);
+  if(IMG.loaded.detail_arch_crack){ctx.drawImage(IMG.img.detail_arch_crack,0,0,800,600)}
+}
+
+function drawDT_sitBench(ctx){
+  ctx.clearRect(0,0,800,600);
+  if(IMG.loaded.detail_bench){ctx.drawImage(IMG.img.detail_bench,0,0,800,600)}
+}
+
+function drawDT_touchWillow(ctx){
+  ctx.clearRect(0,0,800,600);
+  if(IMG.loaded.detail_willow){ctx.drawImage(IMG.img.detail_willow,0,0,800,600)}
+}
+
+function drawDT_observeLotus(ctx){
+  ctx.clearRect(0,0,800,600);
+  if(IMG.loaded.detail_lotus){ctx.drawImage(IMG.img.detail_lotus,0,0,800,600)}
+}
+
+function drawDT_observeSwan(ctx){
+  ctx.clearRect(0,0,800,600);
+  if(IMG.loaded.detail_swan){ctx.drawImage(IMG.img.detail_swan,0,0,800,600)}
+}
+
+function drawDT_feedSwan(ctx){
+  ctx.clearRect(0,0,800,600);
+  if(IMG.loaded.detail_feed_swan){ctx.drawImage(IMG.img.detail_feed_swan,0,0,800,600)}
+}
+
+function drawDT_crouchLake(ctx){
+  ctx.clearRect(0,0,800,600);
+  if(IMG.loaded.detail_lake_reflection){ctx.drawImage(IMG.img.detail_lake_reflection,0,0,800,600)}
+}
+
+// ===== GAME LOGIC =====
+function drawMainScene(zoneId){
+  var ctx=$('#scene-canvas').getContext('2d');
+  ctx.clearRect(0,0,800,600);
+  var zm={xiyanglou:'zone1_main',changchunyuan:'zone2_main',fuhai:'zone3_main'};
+  var key=zm[zoneId];
+  if(key&&IMG.loaded[key]){
+    ctx.drawImage(IMG.img[key],0,0,800,600);
+  }else{
+    if(zoneId==='xiyanglou')drawMain_xiyanglou(ctx);
+    else if(zoneId==='changchunyuan')drawMain_changchunyuan(ctx);
+    else if(zoneId==='fuhai')drawMain_fuhai(ctx)
+  }
+}
+
+function setupHotspots(zoneId){
+  $('#game').querySelectorAll('.hotspot,.exit-zone,.exit-marker').forEach(function(el){el.remove()});
+  $('#game').classList.remove('in-detail');
+  var game=$('#game'),zone=ZONES[zoneId];
+
+  zone.hotspots.forEach(function(hs){
+    var el=document.createElement('div');
+    el.className='hotspot '+(hs.requiresAction?'locked':'unlocked');
+    el.style.cssText='left:'+hs.x+'px;top:'+hs.y+'px;width:'+hs.w+'px;height:'+hs.h+'px;';
+    el._hsData=hs;
+    el.addEventListener('mouseenter',function(){if(!hs.requiresAction||G.actions[hs.requiresAction])showPrompt(hs.label)});
+    el.addEventListener('mouseleave',hidePrompt);
+    el.addEventListener('click',function(e){e.stopPropagation();openDetail(hs)});
+    game.appendChild(el)
+  });
+
+  var arrows={north:'▲',south:'▼',east:'▶',west:'◀'};
+  zone.exits.forEach(function(ex){
+    var ez=document.createElement('div');
+    ez.className='exit-zone';
+    ez.style.cssText='left:'+ex.x+'px;top:'+ex.y+'px;width:'+ex.w+'px;height:'+ex.h+'px;';
+    ez.addEventListener('click',function(e){e.stopPropagation();navigateZone(ex.target)});
+    ez.addEventListener('mouseenter',function(){showPrompt(ex.label)});
+    ez.addEventListener('mouseleave',hidePrompt);
+    var em=document.createElement('div');
+    em.className='exit-marker';
+    em.textContent=(arrows[ex.direction]||'→')+' '+ex.label;
+    var cx=ex.x+ex.w/2,cy=ex.y+ex.h/2;
+    em.style.cssText='left:'+(cx-62)+'px;top:'+(cy-10)+'px;';
+    game.appendChild(ez);game.appendChild(em)
+  })
+}
+
+function openDetail(hs){
+  if(hs.requiresAction&&!G.actions[hs.requiresAction]){showToast('Try a different position first...');return}
+  G.actions[hs.action]=true;
+  checkDiscoveries();
+  if(hs.action==='crouch'||hs.action==='crouch_lake'){
+    G.crouching=!G.crouching;
+    var cv=$('#scene-canvas');
+    if(G.crouching)cv.classList.add('crouching');else cv.classList.remove('crouching');
+    updateHotspotVisibility()
+  }
+  G.detailActive=true;
+  $('#game').classList.add('in-detail');
+  $('#game').querySelectorAll('.hotspot,.exit-zone,.exit-marker').forEach(function(el){el.style.display='none'});
+  var dcv=$('#detail-canvas'),dctx=dcv.getContext('2d');
+  dctx.clearRect(0,0,800,600);
+  var fn=window[hs.detailFn];
+  if(fn)fn(dctx);
+  dcv.classList.add('show');
+  $('#detail-panel').classList.add('show');
+  $('#detail-title').textContent=hs.label;
+  $('#detail-text').textContent=hs.feedback||'';
+  $('#detail-lit').textContent=hs.lit?'📚 '+hs.lit:'';
+  hidePrompt();
+  if(hs.subHotspots){
+    hs.subHotspots.forEach(function(sh){
+      var el=document.createElement('div');
+      el.className='hotspot unlocked sub-hotspot';
+      el.style.cssText='position:absolute;left:'+sh.x+'px;top:'+sh.y+'px;width:'+sh.w+'px;height:'+sh.h+'px;z-index:10;';
+      el.style.setProperty('opacity','1','important');
+      el.style.setProperty('pointer-events','auto','important');
+      el.addEventListener('mouseenter',function(){showPrompt(sh.label)});
+      el.addEventListener('mouseleave',hidePrompt);
+      el.addEventListener('click',function(e){e.stopPropagation();G.actions[sh.action]=true;
+        $('#game').querySelectorAll('.sub-hotspot').forEach(function(el){el.remove()});
+        dctx.clearRect(0,0,800,600);
+        var sf=window[sh.detailFn];if(sf)sf(dctx);
+        $('#detail-title').textContent=sh.label;
+        $('#detail-text').textContent=sh.feedback||'';
+        $('#detail-lit').textContent=sh.lit?'📚 '+sh.lit:'';
+        if(sh.discovery)checkSubDiscovery(sh)
+      });
+      $('#game').appendChild(el)
+    })
+  }
+  checkDiscoveries()
+}
+
+function closeDetail(){
+  G.detailActive=false;
+  $('#detail-canvas').classList.remove('show');
+  $('#detail-panel').classList.remove('show');
+  $('#game').classList.remove('in-detail');
+  if(G.crouching){G.crouching=false;$('#scene-canvas').classList.remove('crouching')}
+  $('#game').querySelectorAll('.hotspot,.exit-zone,.exit-marker').forEach(function(el){el.style.display=''});
+  $('#game').querySelectorAll('.sub-hotspot').forEach(function(el){el.remove()});
+  updateHotspotVisibility();
+}
+
+function updateHotspotVisibility(){
+  $('#game').querySelectorAll('.hotspot').forEach(function(el){
+    var hs=el._hsData;
+    if(!hs)return;
+    if(hs.requiresAction){
+      if(G.actions[hs.requiresAction]){el.classList.remove('locked');el.classList.add('unlocked')}
+      else{el.classList.add('locked');el.classList.remove('unlocked')}
+    }
+  })
+}
+
+function checkDiscoveries(){
+  Object.values(ZONES).forEach(function(zone){
+    zone.discoveries.forEach(function(disc){
+      if(G.discoveries.indexOf(disc.id)>=0)return;
+      if(disc.trigger.every(function(t){return G.actions[t]}))collectDiscovery(disc)
+    })
+  })
+}
+
+function checkSubDiscovery(sh){
+  var zone=ZONES[G.currentZone];
+  zone.discoveries.forEach(function(disc){
+    if(G.discoveries.indexOf(disc.id)>=0)return;
+    if(disc.trigger.every(function(t){return G.actions[t]}))collectDiscovery(disc)
+  })
+}
+
+function collectDiscovery(disc){
+  G.discoveries.push(disc.id);
+  showDiscoveryToast(disc);
+  updateProgressDots();
+  saveGame();
+  var btn=$('#hud-notebook-btn');
+  btn.classList.add('flash');
+  setTimeout(function(){btn.classList.remove('flash')},420);
+  if(G.discoveries.length>=6)setTimeout(showThesis,3200)
+}
+
+function showDiscoveryToast(disc){
+  var t=$('#discovery-toast');
+  t.querySelector('span').textContent='✦ Discovery Recorded';
+  t.querySelector('small').textContent='"'+disc.title+'" added to notes';
+  t.classList.add('show');
+  setTimeout(function(){t.classList.remove('show')},2500)
+}
+
+function renderNotebookList(){
+  var list=$('#notebook-list'),count=$('#notebook-count');
+  list.innerHTML='';
+  if(G.discoveries.length===0){
+    list.innerHTML='<div class="notebook-empty">No discoveries yet.<br/>Explore the scene, touch details,<br/>your observations will be recorded.</div>'
+  }else{
+    G.discoveries.forEach(function(id,i){
+      var disc=findDiscoveryById(id);
+      if(!disc)return;
+      var item=document.createElement('div');
+      item.className='notebook-item';
+      item.innerHTML='<div class="ni-icon">✦</div><div class="ni-title">'+disc.title+'</div><div class="ni-arrow">→</div>';
+      item.onclick=function(){showNotebookDetail(id)};
+      list.appendChild(item)
+    })
+  }
+  count.textContent=G.discoveries.length+' / 6'
+}
+
+function findDiscoveryById(id){
+  for(var z in ZONES){
+    var discs=ZONES[z].discoveries;
+    for(var i=0;i<discs.length;i++){if(discs[i].id===id)return discs[i]}
+  }
+  return null
+}
+
+function showNotebookDetail(id){
+  var disc=findDiscoveryById(id);
+  if(!disc)return;
+  $('#notebook-list').style.display='none';
+  $('#notebook-detail').style.display='block';
+  $('#notebook-detail-title').textContent='✦ '+disc.title;
+  $('#notebook-detail-text').textContent=disc.note;
+  $('#notebook-detail-lit').textContent='📚 '+disc.lit
+}
+
+function showNotebookList(){
+  $('#notebook-list').style.display='block';
+  $('#notebook-detail').style.display='none'
+}
+
+function toggleNotebook(){
+  var ov=$('#notebook-overlay');
+  if(ov.classList.contains('hidden')){
+    renderNotebookList();showNotebookList();
+    ov.classList.remove('hidden')
+  }else{
+    ov.classList.add('hidden')
+  }
+}
+
+function updateProgressDots(){
+  var c=$('#hud-progress'),total=6;
+  c.innerHTML='';
+  for(var i=0;i<total;i++){var d=document.createElement('div');d.className='progress-dot'+(i<G.discoveries.length?' filled':'');c.appendChild(d)}
+}
+
+function drawExitIndicators(ctx,zoneId){
+  var zone=ZONES[zoneId];
+  zone.exits.forEach(function(ex){
+    var cx=ex.x+ex.w/2,cy=ex.y+ex.h/2,size=10+ex.h*.05;
+    ctx.save();
+    ctx.globalAlpha=0.15;
+    ctx.fillStyle='#c8b860';ctx.strokeStyle='#c8b860';ctx.lineWidth=1.5;
+    if(ex.direction==='south'){
+      ctx.beginPath();ctx.moveTo(cx,cy-size*.7);ctx.lineTo(cx-size,cy+size*.3);ctx.lineTo(cx+size,cy+size*.3);ctx.closePath();ctx.fill();
+      ctx.beginPath();ctx.moveTo(cx-8,cy+size*.3+6);ctx.lineTo(cx,cy+size*.3+16);ctx.lineTo(cx+8,cy+size*.3+6);ctx.stroke()
+    }else if(ex.direction==='north'){
+      ctx.beginPath();ctx.moveTo(cx,cy+size*.7);ctx.lineTo(cx-size,cy-size*.3);ctx.lineTo(cx+size,cy-size*.3);ctx.closePath();ctx.fill();
+      ctx.beginPath();ctx.moveTo(cx-8,cy-size*.3-6);ctx.lineTo(cx,cy-size*.3-16);ctx.lineTo(cx+8,cy-size*.3-6);ctx.stroke()
+    }else if(ex.direction==='east'){
+      ctx.beginPath();ctx.moveTo(cx-size*.7,cy);ctx.lineTo(cx+size*.3,cy-size);ctx.lineTo(cx+size*.3,cy+size);ctx.closePath();ctx.fill();
+      ctx.beginPath();ctx.moveTo(cx+size*.3+6,cy-8);ctx.lineTo(cx+size*.3+16,cy);ctx.lineTo(cx+size*.3+6,cy+8);ctx.stroke()
+    }else if(ex.direction==='west'){
+      ctx.beginPath();ctx.moveTo(cx+size*.7,cy);ctx.lineTo(cx-size*.3,cy-size);ctx.lineTo(cx-size*.3,cy+size);ctx.closePath();ctx.fill();
+      ctx.beginPath();ctx.moveTo(cx-size*.3-6,cy-8);ctx.lineTo(cx-size*.3-16,cy);ctx.lineTo(cx-size*.3-6,cy+8);ctx.stroke()
+    }
+    ctx.restore()
+  })
+}
+
+function showScene(zoneId){
+  G.currentZone=zoneId;
+  if(G.crouching){G.crouching=false;$('#scene-canvas').classList.remove('crouching')}
+  if(G.detailActive)closeDetail();
+  drawMainScene(zoneId);
+  drawExitIndicators($('#scene-canvas').getContext('2d'),zoneId);
+  var zone=ZONES[zoneId];
+  $('#hud-zone-label').textContent=zone.name+' · '+zone.subtitle;
+  setupHotspots(zoneId);updateProgressDots();hidePrompt();hideToast();
+  if(zone.ambient){showToast(zone.ambient);if(G.toastTimer)clearTimeout(G.toastTimer);G.toastTimer=setTimeout(hideToast,4000)}
+  saveGame()
+}
+
+function navigateZone(targetId){
+  var key=G.currentZone+'→'+targetId;
+  var text=TRANSITIONS[key]||'You continue walking.';
+  var ov=$('#transition-overlay');$('#transition-text').textContent=text;ov.classList.remove('hidden');
+  setTimeout(function(){showScene(targetId);setTimeout(function(){ov.classList.add('hidden')},600)},1800)
+}
+
+function showPrompt(text){var el=$('#hud-prompt');el.textContent=text;el.style.opacity='1'}
+function hidePrompt(){$('#hud-prompt').style.opacity='0'}
+function showToast(text){if(G.toastTimer)clearTimeout(G.toastTimer);var el=$('#hud-toast');el.textContent=text;el.style.opacity='1';G.toastTimer=setTimeout(function(){el.style.opacity='0'},4000)}
+function hideToast(){$('#hud-toast').style.opacity='0'}
+
+function showThesis(){
+  var q='A flower blooms in the stone crack. Willow bark feels warm to the touch.\nThe broken pillar\'s grape carvings seem within reach, every cut as fresh as yesterday.\nWhen lotus waves pushed in, I smiled.\nA swan brought its beak toward my finger.\nReflections layered my face, the swan, and the distant ruin outline.\n\nBeneath the fire-scorched stone, roots still grow.\nThe ruins stand still. But birds come. Swans bear cygnets. Wind pushes lotus leaves, rustling.\nSomeone sits on the bench, quietly, thinking of nothing.';
+  $('#thesis-quote').textContent=q;$('#thesis-overlay').classList.remove('hidden')
+}
+function showEasterEgg(){
+  $('#easter-egg-overlay').classList.remove('hidden');
+}
+function closeEasterEgg(){
+  $('#easter-egg-overlay').classList.add('hidden');
+}
+function closeEasterEggAndReturnHome(){
+  $('#easter-egg-overlay').classList.add('hidden');
+  $('#thesis-overlay').classList.add('hidden');
+  returnToTitle();
+}
+
+function resetGame(){
+  G.currentZone='xiyanglou';G.discoveries=[];G.actions={};G.crouching=false;G.detailActive=false;
+  if(G.toastTimer)clearTimeout(G.toastTimer);
+  $('#thesis-overlay').classList.add('hidden');$('#transition-overlay').classList.add('hidden');
+  $('#notebook-overlay').classList.add('hidden');$('#detail-canvas').classList.remove('show');$('#detail-panel').classList.remove('show');
+  $('#game').classList.remove('in-detail');
+  hidePrompt();hideToast();showScene('xiyanglou');
+  localStorage.removeItem('yuanminggame_save')
+}
+
+function saveGame(){
+  var save={
+    currentZone:G.currentZone,
+    discoveries:G.discoveries,
+    actions:G.actions
+  };
+  localStorage.setItem('yuanminggame_save',JSON.stringify(save))
+}
+
+function loadGame(){
+  var s=localStorage.getItem('yuanminggame_save');
+  if(s){
+    var save=JSON.parse(s);
+    G.currentZone=save.currentZone||'xiyanglou';
+    G.discoveries=save.discoveries||[];
+    G.actions=save.actions||{};
+    return true
+  }
+  return false
+}
+
+function continueGame(){
+  if(loadGame()){
+    $('#title-screen').classList.add('hidden');
+    $('#home-btn').style.display='block';
+    showScene(G.currentZone);
+    updateProgressDots();
+    if(G.discoveries.length>=6)setTimeout(showThesis,1000)
+  }
+}
+
+function returnToTitle(){
+  saveGame();
+  $('#title-screen').classList.remove('hidden');
+  $('#home-btn').style.display='none';
+  if(loadGame())$('#title-continue').style.display='block';
+  else $('#title-continue').style.display='none'
+}
+
+function startGame(){
+  G.discoveries=[];G.actions={};
+  localStorage.removeItem('yuanminggame_save');
+  $('#title-screen').classList.add('hidden');
+  $('#home-btn').style.display='block';
+  showScene('xiyanglou')
+}
+
+$('#title-start').addEventListener('click',startGame);
+$('#thesis-restart').addEventListener('click',resetGame);
+$('#thesis-easter-egg').addEventListener('click',showEasterEgg);
+$('#detail-back').addEventListener('click',closeDetail);
+updateProgressDots();$('#hud-zone-label').textContent='';
+if(localStorage.getItem('yuanminggame_save'))$('#title-continue').style.display='block';
+
+var E={
+  active:false,
+  imageLoaded:false,
+  image:null,
+  hotspots:[],
+  drawing:false,
+  startX:0,startY:0,
+  currentX:0,currentY:0
+};
+
+function toggleEditor(){
+  if(G.detailActive)return;
+  if(!E.imageLoaded){
+    var zm2={xiyanglou:'zone1_main',changchunyuan:'zone2_main',fuhai:'zone3_main'};
+    var key2=zm2[G.currentZone];
+    if(key2&&IMG.loaded[key2]){
+      E.image=IMG.img[key2];E.imageLoaded=true;
+      $('#editor-load-btn').textContent='✅ Using current scene'
+    }
+  }
+  if(!E.imageLoaded){
+    $('#editor-coords').textContent='Please load a background first (click button)';
+    setTimeout(function(){$('#editor-coords').textContent=''},2500);
+    return;
+  }
+  E.active=!E.active;
+  if(E.active){
+    $('#editor-toggle').classList.add('active');
+    $('#editor-panel').classList.add('show');
+    $('#editor-canvas').classList.add('active');
+    drawEditorImage();
+    $('#editor-hint-draw').classList.add('show');
+    $('#scene-canvas').style.opacity='0.3';
+  }else{
+    $('#editor-toggle').classList.remove('active');
+    $('#editor-panel').classList.remove('show');
+    $('#editor-canvas').classList.remove('active');
+    $('#editor-hint-draw').classList.remove('show');
+    $('#scene-canvas').style.opacity='1';
+  }
+}
+
+function drawEditorImage(){
+  var ec=$('#editor-canvas'),ectx=ec.getContext('2d');
+  ectx.clearRect(0,0,800,600);
+  if(E.image){
+    ectx.drawImage(E.image,0,0,800,600);
+  }
+  ectx.strokeStyle='rgba(200,184,96,.5)';ectx.lineWidth=1.5;ectx.setLineDash([6,3]);
+  E.hotspots.forEach(function(hs){
+    ectx.strokeRect(hs.x,hs.y,hs.w,hs.h);
+  });
+  if(E.drawing){
+    var x=Math.min(E.startX,E.currentX),y=Math.min(E.startY,E.currentY);
+    var w=Math.abs(E.currentX-E.startX),h=Math.abs(E.currentY-E.startY);
+    ectx.strokeStyle='rgba(200,184,96,.9)';ectx.lineWidth=2;ectx.setLineDash([]);
+    ectx.fillStyle='rgba(200,184,96,.08)';
+    ectx.fillRect(x,y,w,h);ectx.strokeRect(x,y,w,h);
+  }
+  ectx.setLineDash([]);
+}
+
+function addHotspot(x,y,w,h){
+  if(w<5||h<5)return;
+  E.hotspots.push({id:'hs_'+Date.now(),x:x,y:y,w:w,h:h,action:'',label:'',detailFn:'',feedback:'',lit:''});
+  renderHotspotList();
+  drawEditorImage();
+}
+
+function removeHotspot(index){
+  E.hotspots.splice(index,1);
+  renderHotspotList();
+  drawEditorImage();
+}
+
+function renderHotspotList(){
+  var list=$('#editor-hotspot-list');
+  list.innerHTML='';
+  E.hotspots.forEach(function(hs,i){
+    var div=document.createElement('div');
+    div.className='editor-hs-item';
+    var cs=document.createElement('span');
+    cs.className='hs-coords';
+    cs.textContent='#'+(i+1)+' x:'+hs.x+' y:'+hs.y+' w:'+hs.w+' h:'+hs.h;
+    var del=document.createElement('span');
+    del.className='hs-del';
+    del.textContent='✕';
+    del.addEventListener('click',function(e){e.stopPropagation();removeHotspot(i)});
+    div.appendChild(cs);div.appendChild(del);
+    list.appendChild(div);
+  });
+}
+
+function exportHotspots(){
+  if(E.hotspots.length===0){$('#editor-coords').textContent='No hotspots to export';return}
+  var zoneName=prompt('Enter zone name (xiyanglou, changchunyuan, fuhai):','new_zone');
+  if(!zoneName)return;
+  var zone={};
+  zone[zoneName]={
+    id:zoneName,name:'',subtitle:'',emotion:'',ambient:'',
+    hotspots:E.hotspots,
+    discoveries:[],
+    exits:[]
+  };
+  var json=JSON.stringify(zone,null,2);
+  navigator.clipboard.writeText(json).then(function(){
+    $('#editor-coords').textContent='✅ ' + E.hotspots.length + ' hotspots copied to clipboard';
+    setTimeout(function(){$('#editor-coords').textContent=''},3000);
+  }).catch(function(){
+    $('#editor-coords').textContent='Copy failed, see console';
+    console.log(json);
+  });
+}
+
+function clearHotspots(){
+  if(E.hotspots.length===0)return;
+  if(!confirm('Clear all ' + E.hotspots.length + ' hotspots?'))return;
+  E.hotspots=[];
+  renderHotspotList();
+  drawEditorImage();
+}
+
+var editorCanvas=$('#editor-canvas');
+
+editorCanvas.addEventListener('mousedown',function(e){
+  if(!E.active||!E.imageLoaded)return;
+  var rect=editorCanvas.getBoundingClientRect();
+  E.startX=e.clientX-rect.left;E.startY=e.clientY-rect.top;
+  E.currentX=E.startX;E.currentY=E.startY;
+  E.drawing=true;
+  $('#editor-hint-draw').classList.remove('show');
+});
+
+editorCanvas.addEventListener('mousemove',function(e){
+  if(!E.active||!E.drawing)return;
+  var rect=editorCanvas.getBoundingClientRect();
+  E.currentX=Math.max(0,Math.min(800,e.clientX-rect.left));
+  E.currentY=Math.max(0,Math.min(600,e.clientY-rect.top));
+  drawEditorImage();
+  var x=Math.round(Math.min(E.startX,E.currentX)),y=Math.round(Math.min(E.startY,E.currentY));
+  var w=Math.round(Math.abs(E.currentX-E.startX)),h=Math.round(Math.abs(E.currentY-E.startY));
+  $('#editor-coords').textContent='x:'+x+' y:'+y+' w:'+w+' h:'+h;
+});
+
+editorCanvas.addEventListener('mouseup',function(e){
+  if(!E.active||!E.drawing)return;
+  E.drawing=false;
+  var x=Math.round(Math.min(E.startX,E.currentX)),y=Math.round(Math.min(E.startY,E.currentY));
+  var w=Math.round(Math.abs(E.currentX-E.startX)),h=Math.round(Math.abs(E.currentY-E.startY));
+  if(w>=5&&h>=5){
+    addHotspot(x,y,w,h);
+    $('#editor-coords').textContent='✅ Hotspot #' + E.hotspots.length + ' added x:'+x+' y:'+y+' w:'+w+' h:'+h;
+  }else{
+    $('#editor-coords').textContent='Hotspot too small, try again';
+  }
+});
+
+editorCanvas.addEventListener('mouseleave',function(){
+  if(E.drawing){
+    E.drawing=false;
+    $('#editor-coords').textContent='Cancelled';
+    drawEditorImage();
+  }
+});
+
+$('#editor-load-btn').addEventListener('click',function(){$('#editor-file').click()});
+
+$('#editor-file').addEventListener('change',function(e){
+  var file=e.target.files[0];
+  if(!file)return;
+  var reader=new FileReader();
+  reader.onload=function(ev){
+    var img=new Image();
+    img.onload=function(){
+      E.image=img;E.imageLoaded=true;
+      if(E.active){
+        $('#editor-canvas').classList.add('active');
+        drawEditorImage();
+        $('#editor-hint-draw').classList.add('show');
+      }
+      $('#editor-load-btn').textContent='✅ Background loaded (' + img.naturalWidth + '×' + img.naturalHeight + ')';
+    };
+    img.src=ev.target.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+$('#editor-toggle').addEventListener('click',toggleEditor);
+
+$('#editor-export-btn').addEventListener('click',exportHotspots);
+$('#editor-clear-btn').addEventListener('click',clearHotspots);
+
+document.addEventListener('keydown',function(e){
+  if(e.key==='e'||e.key==='E'){
+    if(document.activeElement&&(document.activeElement.tagName==='INPUT'||document.activeElement.tagName==='TEXTAREA'))return;
+    if(G.detailActive||($('#title-screen')&&!$('#title-screen').classList.contains('hidden')))return;
+    toggleEditor();
+  }
+});
+</script>
+</body>
+</html>
+    div.appendChild(cs);div.appendChild(del);
+    list.appendChild(div);
+  });
+}
+
+function exportHotspots(){
+  if(E.hotspots.length===0){$('#editor-coords').textContent='No hotspots to export';return}
+  var zoneName=prompt('Enter zone name (xiyanglou, changchunyuan, fuhai):','new_zone');
+  if(!zoneName)return;
+  var zone={};
+  zone[zoneName]={
+    id:zoneName,name:'',subtitle:'',emotion:'',ambient:'',
+    hotspots:E.hotspots,
